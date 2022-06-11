@@ -67,6 +67,11 @@ class POVObservation(KeymapTranslationHandler):
             if self.include_depth:
                 depth = depth.reshape((self.video_height, self.video_width, 1))[::-1, :, :]
 
+        if self.include_depth:
+            modelview_matrix = np.frombuffer(byte_array, dtype=np.float32, count=16, offset=n_pixels * 7)
+            projection_matrix = np.frombuffer(byte_array, dtype=np.float32, count=16, offset=n_pixels * 7 + 16)
+            import ipdb; ipdb.set_trace()
+
         return (rgb, depth) if self.include_depth else rgb
 
     def __or__(self, other):

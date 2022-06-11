@@ -25,6 +25,9 @@ import static org.lwjgl.opengl.GL11.GL_RGB;
 import static org.lwjgl.opengl.GL11.GL_RGBA;
 import static org.lwjgl.opengl.GL11.GL_UNSIGNED_BYTE;
 import static org.lwjgl.opengl.GL11.glReadPixels;
+import static org.lwjgl.opengl.GL11.glGetFloat;
+import static org.lwjgl.opengl.GL11.GL_MODELVIEW_MATRIX;
+import static org.lwjgl.opengl.GL11.GL_PROJECTION_MATRIX;
 
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
@@ -138,6 +141,21 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
         }
         // Reset depth buffer ready for next read:
         this.depthBuffer.clear();
+
+        // Write Modelview and Projection matrices
+        offset += width * height;
+        FloatBuffer modelview = BufferUtils.createFloatBuffer(16);
+        glGetFloat(GL_MODELVIEW_MATRIX, modelview);
+        for (int i = 0; i < 16; i++) {
+            floatBuffer.put(offset + i, modelview.get(i));
+        }
+
+        offset += 16;
+        FloatBuffer projection = BufferUtils.createFloatBuffer(16);
+        glGetFloat(GL_PROJECTION_MATRIX, projection);        
+        for (int i = 0; i < 16; i++) {
+            floatBuffer.put(offset + i, projection.get(i));
+        }
     }
 
     @Override
@@ -154,7 +172,13 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
 
     public int getRequiredBufferSize()
     {
-        return this.videoParams.getWidth() * this.videoParams.getHeight() * (this.videoParams.isWantDepth() ? 7 : 3);
+        int nPixels = this.videoParams.getWidth() * this.videoParams.getHeight();
+        int size = nPixels * 3;
+        if (this.videoParams.isWantDepth()) {
+            size += nPixels * 4; // Float precision depth
+            size += 2 * 16 * 4; // Modelview and Projection matrices
+        }
+        return size;
     }
 
     private void getRGBFrame(ByteBuffer buffer)
