@@ -81,7 +81,7 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
         GL30.glBlitFramebuffer(0, 0, Minecraft.getMinecraft().getFramebuffer().framebufferWidth, Minecraft.getMinecraft().getFramebuffer().framebufferHeight, 0, 0, width, height, GL11.GL_COLOR_BUFFER_BIT | GL11.GL_DEPTH_BUFFER_BIT, GL11.GL_NEAREST);
 
         this.fbo.bindFramebuffer(true);
-        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+        glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer);
         glReadPixels(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, this.depthBuffer);
         this.fbo.unbindFramebuffer();
 
@@ -124,14 +124,17 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
         if (range < 0.000001)
             range = 0.000001f; // To avoid divide by zero errors in cases where
                                // there is no depth variance
-        float scale = 255 / range;
+        
+        // TODO only works for case when width * height % 4 == 0
+        FloatBuffer floatBuffer = buffer.asFloatBuffer();
+        int offset = width * height * 3 / 4;
         for (int i = 0; i < width * height; i++)
         {
             float f = this.depthBuffer.get(i);
             f = (f < minval ? minval : (f > maxval ? maxval : f));
             f -= minval;
-            f *= scale;
-            buffer.put(i * 4 + 3, (byte) f);
+            f /= range;
+            floatBuffer.put(offset + i, f);
         }
         // Reset depth buffer ready for next read:
         this.depthBuffer.clear();
@@ -151,7 +154,7 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
 
     public int getRequiredBufferSize()
     {
-        return this.videoParams.getWidth() * this.videoParams.getHeight() * (this.videoParams.isWantDepth() ? 4 : 3);
+        return this.videoParams.getWidth() * this.videoParams.getHeight() * (this.videoParams.isWantDepth() ? 7 : 3);
     }
 
     private void getRGBFrame(ByteBuffer buffer)

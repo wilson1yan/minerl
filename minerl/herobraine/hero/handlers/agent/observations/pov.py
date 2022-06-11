@@ -35,14 +35,13 @@ class POVObservation(KeymapTranslationHandler):
     def __init__(self, video_resolution: Tuple[int, int], include_depth: bool = False):
         self.include_depth = include_depth
         self.video_resolution = video_resolution
+        self.video_depth = 3
         space = None
         if include_depth:
-            space = spaces.Box(0, 255, list(video_resolution)[::-1] + [4], dtype=np.uint8)
-            self.video_depth = 4
-
+            space = spaces.Tuple((spaces.Box(0, 255, list(video_resolution)[::-1] + [3], dtype=np.uint8),
+                                  spaces.Box(0., 1., list(video_resolution)[::-1] + [1], dtype=np.float32)))
         else:
             space = spaces.Box(0, 255, list(video_resolution)[::-1] + [3], dtype=np.uint8)
-            self.video_depth = 3
 
         # TODO (R): FIGURE THIS THE FUCK OUT & Document it.
         self.video_height = video_resolution[1]
@@ -54,14 +53,21 @@ class POVObservation(KeymapTranslationHandler):
 
     def from_hero(self, obs):
         byte_array = super().from_hero(obs)
-        pov = np.frombuffer(byte_array, dtype=np.uint8)
+        n_pixels = self.video_height * self.video_width
+        rgb = np.frombuffer(byte_array, dtype=np.uint8, count=n_pixels * 3, offset=0)
+        if self.include_depth:
+            depth = np.frombuffer(byte_array, dtype=np.float32, count=n_pixels, offset=n_pixels * 3)
 
-        if pov is None or len(pov) == 0:
-            pov = np.zeros((self.video_height, self.video_width, self.video_depth), dtype=np.uint8)
+        if rgb is None or len(rgb) == 0:
+            rgb = np.zeros((self.video_height, self.video_width, self.video_depth), dtype=np.uint8)
+            if self.include_depth:
+                depth = np.zeros((self.video_height, self.video_width, 1), dtype=np.float32)
         else:
-            pov = pov.reshape((self.video_height, self.video_width, self.video_depth))[::-1, :, :]
+            rgb = rgb.reshape((self.video_height, self.video_width, self.video_depth))[::-1, :, :]
+            if self.include_depth:
+                depth = depth.reshape((self.video_height, self.video_width, 1))[::-1, :, :]
 
-        return pov
+        return (rgb, depth) if self.include_depth else rgb
 
     def __or__(self, other):
         """
