@@ -87,56 +87,13 @@ public class VideoProducerImplementation extends HandlerBase implements IVideoPr
         glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE, buffer);
         glReadPixels(0, 0, width, height, GL_DEPTH_COMPONENT, GL_FLOAT, this.depthBuffer);
         this.fbo.unbindFramebuffer();
-
-        // Now convert the depth buffer into values from 0-255 and copy it over
-        // the alpha channel.
-        // We either use the min and max values supplied in order to scale it,
-        // or we scale it according
-        // to the dynamic content:
-        float minval, maxval;
-
-        // The scaling section is optional (since the depthmap is optional) - so
-        // if there is no depthScaling object,
-        // go with the default of autoscale.
-        if (this.videoParams.getDepthScaling() == null || this.videoParams.getDepthScaling().isAutoscale())
-        {
-            minval = 1;
-            maxval = 0;
-            for (int i = 0; i < width * height; i++)
-            {
-                float f = this.depthBuffer.get(i);
-                if (f < minval)
-                    minval = f;
-                if (f > maxval)
-                    maxval = f;
-            }
-        }
-        else
-        {
-            minval = this.videoParams.getDepthScaling().getMin().floatValue();
-            maxval = this.videoParams.getDepthScaling().getMax().floatValue();
-            if (minval > maxval)
-            {
-                // You can't trust users.
-                float t = minval;
-                minval = maxval;
-                maxval = t;
-            }
-        }
-        float range = maxval - minval;
-        if (range < 0.000001)
-            range = 0.000001f; // To avoid divide by zero errors in cases where
-                               // there is no depth variance
-        
+ 
         // TODO only works for case when width * height % 4 == 0
         FloatBuffer floatBuffer = buffer.asFloatBuffer();
         int offset = width * height * 3 / 4;
         for (int i = 0; i < width * height; i++)
         {
             float f = this.depthBuffer.get(i);
-            f = (f < minval ? minval : (f > maxval ? maxval : f));
-            f -= minval;
-            f /= range;
             floatBuffer.put(offset + i, f);
         }
         // Reset depth buffer ready for next read:
